@@ -11,7 +11,6 @@ Architecture:
 import gradio as gr
 import os
 from databricks.sdk import WorkspaceClient
-#from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -45,26 +44,12 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
         return "", "Please select a show."
 
     try:
-        import os
-        from openai import OpenAI
-
-        token = (
-            os.environ.get("DATABRICKS_TOKEN") or
-            os.environ.get("DATABRICKS_RUNTIME_TOKEN") or  
-            os.environ.get("DATABRICKS_AAD_TOKEN")
+        w = get_client()
+        response = w.serving_endpoints.query(
+            name=SUPERVISOR_ENDPOINT,
+            inputs={"input": [{"role": "user", "content": f"Generate a professional press release for '{show_name}'."}]}
         )
-        
-        client = OpenAI(
-            api_key=token,
-            base_url="https://dbc-840651e6-3fc0.cloud.databricks.com/serving-endpoints"
-        )
-
-        press_release = " ".join(
-            getattr(content, "text", "")
-            for output in response.output
-            for content in getattr(output, "content", [])
-        )
-
+        press_release = str(response)
         return press_release, "Generated successfully."
 
     except Exception as e:
@@ -89,12 +74,12 @@ CSS = """
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --ink:     #e8e4df;
+        --ink:      #e8e4df;
         --ink-muted: #999999;
-        --rule:    #333333;
-        --bg:      #1a1a1a;
-        --bg-card: #242424;
-        --accent:  #e8e4df;
+        --rule:     #333333;
+        --bg:       #1a1a1a;
+        --bg-card:  #242424;
+        --accent:   #e8e4df;
     }
     #generate-btn {
         background: #e8e4df !important;
