@@ -63,7 +63,8 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
             inputs={"input": [{"role": "user", "content": user_message}]}
         )
         
-        press_release = response["predictions"] if isinstance(response, dict) else str(response)
+        press_release = str(response)
+   ##     response["predictions"] if isinstance(response, dict) else 
         return press_release, "Generated successfully."
 
     except Exception as e:
