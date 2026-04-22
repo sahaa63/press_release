@@ -15,7 +15,7 @@ from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-SUPERVISOR_ENDPOINT = "press-release-supervisor"
+SUPERVISOR_ENDPOINT = "mas-8821e19b-endpoint"
 
 AVAILABLE_SHOWS = [
     "Sunday Football",
@@ -90,6 +90,24 @@ CSS = """
     --accent:     #1a1a2e;
     --font-head:  'Playfair Display', Georgia, serif;
     --font-body:  'Source Serif 4', Georgia, serif;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --ink:     #e8e4df;
+        --ink-muted: #999999;
+        --rule:    #333333;
+        --bg:      #1a1a1a;
+        --bg-card: #242424;
+        --accent:  #e8e4df;
+    }
+    #generate-btn {
+        background: #e8e4df !important;
+        color: #1a1a1a !important;
+    }
+    #masthead h1 {
+        color: #e8e4df !important;
+    }
 }
 
 body, .gradio-container {
