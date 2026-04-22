@@ -11,7 +11,7 @@ Architecture:
 import gradio as gr
 import os
 from databricks.sdk import WorkspaceClient
-from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
+#from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -60,16 +60,10 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
 
         response = client.serving_endpoints.query(
             name=SUPERVISOR_ENDPOINT,
-            messages=[
-                ChatMessage(
-                    role=ChatMessageRole.USER,
-                    content=user_message,
-                )
-            ],
-            max_tokens=800,
+            inputs={"input": [{"role": "user", "content": user_message}]}
         )
-
-        press_release = response.choices[0].message.content
+        
+        press_release = response["predictions"] if isinstance(response, dict) else str(response)
         return press_release, "Generated successfully."
 
     except Exception as e:
