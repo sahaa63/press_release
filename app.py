@@ -49,7 +49,7 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
         from openai import OpenAI
 
         client = OpenAI(
-            api_key=os.environ.get("DATABRICKS_TOKEN"),
+            api_key=os.environ.get("DATABRICKS_CLIENT_SECRET"),
             base_url="https://dbc-840651e6-3fc0.cloud.databricks.com/serving-endpoints"
         )
 
