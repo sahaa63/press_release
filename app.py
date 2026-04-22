@@ -1,6 +1,6 @@
 """
 Press Release Generator — Databricks App
-Final Optimized Version for Multi-Agent Supervisor
+Final Version: Specifically tuned for AgentBricks 'Responses' API.
 """
 
 import gradio as gr
@@ -23,37 +23,6 @@ AVAILABLE_SHOWS = [
 def get_client() -> WorkspaceClient:
     return WorkspaceClient()
 
-# ── Helper to find text in the Supervisor's complex response ──────────────────
-
-def extract_content(data):
-    """Recursively searches for the actual text in the agent's response."""
-    if isinstance(data, str):
-        return data
-    
-    if isinstance(data, dict):
-        # Priority 1: Agent Bricks 'output' field
-        if "output" in data: return extract_content(data["output"])
-        # Priority 2: OpenAI-style 'content'
-        if "content" in data: return data["content"]
-        # Priority 3: Standard Model Serving 'predictions'
-        if "predictions" in data and data["predictions"]: 
-            return extract_content(data["predictions"][0])
-        # Priority 4: Chat 'choices'
-        if "choices" in data and data["choices"]:
-            return extract_content(data["choices"][0])
-        if "message" in data:
-            return extract_content(data["message"])
-            
-        # If it's a dict but no keys match, return the first value that's a string/dict
-        for val in data.values():
-            res = extract_content(val)
-            if res: return res
-            
-    if isinstance(data, list) and len(data) > 0:
-        return extract_content(data[0])
-        
-    return None
-
 # ── Core generation function ───────────────────────────────────────────────────
 
 def generate_press_release(show_name: str) -> tuple[str, str]:
@@ -63,34 +32,49 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
     try:
         w = get_client()
         
-        # This payload structure satisfies the 'input field is required' error
+        # The API guide confirms the endpoint expects this exact structure:
+        # A root 'input' key with a list of message objects.
         payload = {
             "input": [
-                {"role": "user", "content": f"Generate a professional press release for '{show_name}'."}
+                {
+                    "role": "user", 
+                    "content": f"Generate a professional press release for '{show_name}'."
+                }
             ]
         }
 
-        # Use extra_params to ensure the 'input' key is at the top level of the POST body
-        # This bypasses the SDK's default behavior of wrapping inputs for batching.
-        response = w.serving_endpoints.query(
-            name=SUPERVISOR_ENDPOINT,
-            extra_params=payload
-        )
+        # Path for AgentBricks 'responses' API
+        # This matches the 'https://.../serving-endpoints' base_url from your guide
+        endpoint_path = f"/serving-endpoints/{SUPERVISOR_ENDPOINT}/invocations"
 
-        # Convert the object to a dictionary so we can parse it
-        res_dict = response.as_dict()
+        # We use the authenticated api_client.do to send the raw POST.
+        # This bypasses the SDK's internal schema mapping and uses the exact payload.
+        raw_response = w.api_client.do("POST", endpoint_path, body=payload)
         
-        # Deep-crawl the response to find the generated text
-        press_release = extract_content(res_dict)
+        # PARSING LOGIC: Based on your print() example:
+        # response.output -> list of outputs
+        # output.content -> list of content objects (usually has .text)
+        
+        extracted_text = []
+        if "output" in raw_response:
+            for output_item in raw_response["output"]:
+                if "content" in output_item:
+                    for content_item in output_item["content"]:
+                        # Pull 'text' field if available
+                        text = content_item.get("text", "")
+                        if text:
+                            extracted_text.append(text)
+        
+        press_release = " ".join(extracted_text)
 
         if not press_release:
-            # Fallback: if we can't find text, show the raw JSON for debugging
-            press_release = f"Could not find text in response. Raw data:\n{json.dumps(res_dict, indent=2)}"
+            # Fallback in case of an unusual structure
+            press_release = "Agent returned an empty response. Please check endpoint logs."
 
         return press_release, "Generated successfully."
 
     except Exception as e:
-        print(f"DEBUG: {str(e)}")
+        # This will catch and display the 'input field is required' if the structure fails
         return "", f"Error: {str(e)}"
 
 # ── UI Layout ──────────────────────────────────────────────────────────────────
@@ -105,7 +89,7 @@ CSS = """
 body, .gradio-container { background: var(--bg) !important; font-family: var(--font-body) !important; color: var(--ink) !important; }
 #masthead { border-bottom: 2px solid var(--ink); padding-bottom: 12px; margin-bottom: 8px; }
 #masthead h1 { font-family: var(--font-head) !important; font-size: 2rem !important; color: var(--ink) !important; margin: 0 !important; }
-#input-panel { background: var(--bg-card) !important; border: 1px solid var(--rule) !important; padding: 20px !important; }
+#input-panel { background: var(--bg-card) !important; border: 1px solid var(--rule) !important; border-radius: 2px !important; padding: 20px !important; }
 #generate-btn { background: var(--accent) !important; color: #ffffff !important; padding: 12px 24px !important; width: 100% !important; margin-top: 8px !important; }
 #output-body textarea { font-family: var(--font-body) !important; font-size: 0.95rem !important; line-height: 1.9 !important; padding: 24px !important; }
 """
@@ -124,9 +108,9 @@ def build_ui() -> gr.Blocks:
                 show_input = gr.Dropdown(choices=AVAILABLE_SHOWS, label="Select Show", value="Sunday Football")
                 generate_btn = gr.Button("Generate Press Release", elem_id="generate-btn", variant="primary")
                 status = gr.Textbox(label="Status", interactive=False, lines=1)
-                gr.Markdown("---\n**System Architecture**\n1. Genie Space (Live Data)\n2. Knowledge Asst (Style)\n3. Orchestrator (Llama 3.3)")
+                gr.Markdown("---\n**System Details**\n1. Fetches data via Genie\n2. Style via Knowledge Asst\n3. Model: Llama 3.3 70B")
             with gr.Column(scale=2, elem_id="output-body"):
-                output = gr.Textbox(label="Press Release", lines=28, interactive=False, placeholder="Press Release will appear here...", show_copy_button=True)
+                output = gr.Textbox(label="Press Release", lines=28, interactive=False, placeholder="Your press release will appear here...", show_copy_button=True)
 
         generate_btn.click(fn=generate_press_release, inputs=[show_input], outputs=[output, status])
     return app
