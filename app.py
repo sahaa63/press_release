@@ -1,9 +1,15 @@
+"""
+Press Release Generator — Databricks App
+Final Optimized Version for Multi-Agent Supervisor
+"""
+
 import gradio as gr
 import os
 import json
 from databricks.sdk import WorkspaceClient
 
 # ── Constants ─────────────────────────────────────────────────────────────────
+
 SUPERVISOR_ENDPOINT = "mas-8821e19b-endpoint"
 
 AVAILABLE_SHOWS = [
@@ -12,8 +18,41 @@ AVAILABLE_SHOWS = [
     "Late Night Laughs", "Morning Brew", "Weekend Wrap", "Family Feud Live",
 ]
 
+# ── Databricks client ─────────────────────────────────────────────────────────
+
 def get_client() -> WorkspaceClient:
     return WorkspaceClient()
+
+# ── Helper to find text in the Supervisor's complex response ──────────────────
+
+def extract_content(data):
+    """Recursively searches for the actual text in the agent's response."""
+    if isinstance(data, str):
+        return data
+    
+    if isinstance(data, dict):
+        # Priority 1: Agent Bricks 'output' field
+        if "output" in data: return extract_content(data["output"])
+        # Priority 2: OpenAI-style 'content'
+        if "content" in data: return data["content"]
+        # Priority 3: Standard Model Serving 'predictions'
+        if "predictions" in data and data["predictions"]: 
+            return extract_content(data["predictions"][0])
+        # Priority 4: Chat 'choices'
+        if "choices" in data and data["choices"]:
+            return extract_content(data["choices"][0])
+        if "message" in data:
+            return extract_content(data["message"])
+            
+        # If it's a dict but no keys match, return the first value that's a string/dict
+        for val in data.values():
+            res = extract_content(val)
+            if res: return res
+            
+    if isinstance(data, list) and len(data) > 0:
+        return extract_content(data[0])
+        
+    return None
 
 # ── Core generation function ───────────────────────────────────────────────────
 
@@ -24,38 +63,38 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
     try:
         w = get_client()
         
-        # Exact payload structure requested by the Multi-Agent Supervisor
+        # This payload structure satisfies the 'input field is required' error
         payload = {
             "input": [
                 {"role": "user", "content": f"Generate a professional press release for '{show_name}'."}
             ]
         }
 
-        # FIX: Using direct API call instead of .query() 
-        # This ensures we get the raw JSON back without the SDK stripping fields.
-        endpoint_path = f"/api/2.0/serving-endpoints/{SUPERVISOR_ENDPOINT}/invocations"
+        # Use extra_params to ensure the 'input' key is at the top level of the POST body
+        # This bypasses the SDK's default behavior of wrapping inputs for batching.
+        response = w.serving_endpoints.query(
+            name=SUPERVISOR_ENDPOINT,
+            extra_params=payload
+        )
+
+        # Convert the object to a dictionary so we can parse it
+        res_dict = response.as_dict()
         
-        # w.api_client.do makes a raw authenticated request to the Databricks API
-        raw_response = w.api_client.do("POST", endpoint_path, body=payload)
-        
-        # The raw_response is usually a dict. Let's dig for the text.
-        # Agent Supervisors typically return: {'output': 'The text...'} or {'predictions': [...]}
-        if "output" in raw_response:
-            press_release = raw_response["output"]
-        elif "predictions" in raw_response:
-            press_release = raw_response["predictions"][0]
-        elif "choices" in raw_response and len(raw_response["choices"]) > 0:
-            press_release = raw_response["choices"][0]["message"]["content"]
-        else:
-            # If we still can't find it, show the raw JSON for one last debug check
-            press_release = json.dumps(raw_response, indent=2)
+        # Deep-crawl the response to find the generated text
+        press_release = extract_content(res_dict)
+
+        if not press_release:
+            # Fallback: if we can't find text, show the raw JSON for debugging
+            press_release = f"Could not find text in response. Raw data:\n{json.dumps(res_dict, indent=2)}"
 
         return press_release, "Generated successfully."
 
     except Exception as e:
+        print(f"DEBUG: {str(e)}")
         return "", f"Error: {str(e)}"
 
 # ── UI Layout ──────────────────────────────────────────────────────────────────
+
 CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Serif+4:wght@300;400&display=swap');
 :root {
@@ -85,9 +124,9 @@ def build_ui() -> gr.Blocks:
                 show_input = gr.Dropdown(choices=AVAILABLE_SHOWS, label="Select Show", value="Sunday Football")
                 generate_btn = gr.Button("Generate Press Release", elem_id="generate-btn", variant="primary")
                 status = gr.Textbox(label="Status", interactive=False, lines=1)
-                gr.Markdown("---\n**Workflow**\n1. Data via Genie\n2. Style via Knowledge Asst\n3. Llama 3.3 70B")
+                gr.Markdown("---\n**System Architecture**\n1. Genie Space (Live Data)\n2. Knowledge Asst (Style)\n3. Orchestrator (Llama 3.3)")
             with gr.Column(scale=2, elem_id="output-body"):
-                output = gr.Textbox(label="Press Release", lines=28, interactive=False, placeholder="Your press release will appear here...", show_copy_button=True)
+                output = gr.Textbox(label="Press Release", lines=28, interactive=False, placeholder="Press Release will appear here...", show_copy_button=True)
 
         generate_btn.click(fn=generate_press_release, inputs=[show_input], outputs=[output, status])
     return app
