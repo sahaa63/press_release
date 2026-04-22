@@ -41,30 +41,29 @@ def get_client() -> WorkspaceClient:
 # ── Core generation function ───────────────────────────────────────────────────
 
 def generate_press_release(show_name: str) -> tuple[str, str]:
-    """
-    Calls the Supervisor Agent and returns:
-    - press_release (str): formatted press release text
-    - status (str): status message for the UI
-    """
     if not show_name:
         return "", "Please select a show."
 
     try:
-        client = get_client()
+        import os
+        from openai import OpenAI
 
-        user_message = (
-            f"Generate a professional press release for '{show_name}'. "
-            f"Fetch the latest week performance data, retrieve historical press release "
-            f"style guidelines, and produce a complete, formatted press release."
+        client = OpenAI(
+            api_key=os.environ.get("DATABRICKS_TOKEN"),
+            base_url="https://dbc-840651e6-3fc0.cloud.databricks.com/serving-endpoints"
         )
 
-        response = client.serving_endpoints.query(
-            name=SUPERVISOR_ENDPOINT,
-            inputs={"input": [{"role": "user", "content": user_message}]}
+        response = client.responses.create(
+            model="mas-8821e19b-endpoint",
+            input=[{"role": "user", "content": f"Generate a professional press release for '{show_name}'."}]
         )
-        
-        press_release = str(response)
-   ##     response["predictions"] if isinstance(response, dict) else 
+
+        press_release = " ".join(
+            getattr(content, "text", "")
+            for output in response.output
+            for content in getattr(output, "content", [])
+        )
+
         return press_release, "Generated successfully."
 
     except Exception as e:
