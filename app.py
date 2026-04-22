@@ -48,14 +48,15 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
         import os
         from openai import OpenAI
 
-        client = OpenAI(
-            api_key=os.environ.get("DATABRICKS_CLIENT_SECRET"),
-            base_url="https://dbc-840651e6-3fc0.cloud.databricks.com/serving-endpoints"
+        token = (
+            os.environ.get("DATABRICKS_TOKEN") or
+            os.environ.get("DATABRICKS_RUNTIME_TOKEN") or  
+            os.environ.get("DATABRICKS_AAD_TOKEN")
         )
-
-        response = client.responses.create(
-            model="mas-8821e19b-endpoint",
-            input=[{"role": "user", "content": f"Generate a professional press release for '{show_name}'."}]
+        
+        client = OpenAI(
+            api_key=token,
+            base_url="https://dbc-840651e6-3fc0.cloud.databricks.com/serving-endpoints"
         )
 
         press_release = " ".join(
