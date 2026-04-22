@@ -42,10 +42,11 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
     try:
         w = get_client()
         
-        # FIX 1: Use the correct payload structure for Agent endpoints.
-        # Most Agent Bricks supervisors expect a 'messages' list.
-        payload = {
-            "messages": [
+        # THE FIX: 
+        # We define exactly what the endpoint wants: a key named 'input' 
+        # containing a list of message objects.
+        request_body = {
+            "input": [
                 {
                     "role": "user", 
                     "content": f"Generate a professional press release for '{show_name}'."
@@ -53,47 +54,56 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
             ]
         }
 
-        # FIX 2: Pass the payload via extra_params to ensure it hits the top-level body.
+        # We use the keyword 'input' inside the query method. 
+        # In the Databricks SDK for Agent endpoints, the 'input' parameter 
+        # maps directly to the top-level 'input' field in the JSON request.
         response = w.serving_endpoints.query(
             name=SUPERVISOR_ENDPOINT,
-            extra_params=payload
+            input=request_body["input"]  # Passing the list directly to the 'input' param
         )
 
-        # FIX 3: Parse the response object. 
-        # The query() method returns a QueryEndpointResponse object.
-        # For Agents, the text is typically in predictions[0] or choices[0].
-        
-        # Let's try to extract the content string safely:
+        # Parse the response
         try:
-            # If it's a standard Chat Completion response:
+            # WorkspaceClient.query returns a QueryEndpointResponse. 
+            # We convert to dict to handle the data safely.
             res_dict = response.as_dict()
-            press_release = res_dict['choices'][0]['message']['content']
-        except (KeyError, IndexError, AttributeError):
-            # Fallback if the supervisor has a different output schema
+            
+            # Agent Supervisor outputs usually come back in the 'predictions' or 'output' field
+            # depending on the exact version of the Agent Bricks preview.
+            if 'predictions' in res_dict:
+                press_release = res_dict['predictions'][0]
+            elif 'choices' in res_dict:
+                press_release = res_dict['choices'][0]['message']['content']
+            else:
+                press_release = str(response)
+                
+        except Exception:
             press_release = str(response)
 
         return press_release, "Generated successfully."
 
     except Exception as e:
-        # Improved error logging for debugging in Databricks App logs
-        print(f"DEBUG ERROR: {str(e)}")
+        print(f"DEBUG: Request failed. Error: {str(e)}")
         return "", f"Error: {str(e)}"
 
 
-# ── UI Layout (Kept your excellent styling) ───────────────────────────────────
+# ── UI Layout ──────────────────────────────────────────────────────────────────
 
 CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Serif+4:wght@300;400&display=swap');
+
 :root {
     --ink: #1a1a1a; --ink-muted: #666666; --rule: #d0c9bf; --bg: #faf8f5;
     --bg-card: #ffffff; --accent: #1a1a2e; --font-head: 'Playfair Display', Georgia, serif;
     --font-body: 'Source Serif 4', Georgia, serif;
 }
+
 @media (prefers-color-scheme: dark) {
     :root { --ink: #e8e4df; --ink-muted: #999999; --rule: #333333; --bg: #1a1a1a; --bg-card: #242424; --accent: #e8e4df; }
     #generate-btn { background: #e8e4df !important; color: #1a1a1a !important; }
     #masthead h1 { color: #e8e4df !important; }
 }
+
 body, .gradio-container { background: var(--bg) !important; font-family: var(--font-body) !important; color: var(--ink) !important; }
 #masthead { border-bottom: 2px solid var(--ink); padding-bottom: 12px; margin-bottom: 8px; }
 #masthead h1 { font-family: var(--font-head) !important; font-size: 2rem !important; font-weight: 700 !important; color: var(--ink) !important; margin: 0 !important; }
@@ -105,25 +115,29 @@ body, .gradio-container { background: var(--bg) !important; font-family: var(--f
 
 def build_ui() -> gr.Blocks:
     with gr.Blocks(css=CSS, title="Press Release Generator") as app:
+
         gr.HTML("""
             <div id="masthead">
                 <h1>Press Release Generator</h1>
                 <p>Versant Innovation Pod &nbsp;·&nbsp; Powered by Databricks Multi-Agent Supervisor</p>
             </div>
         """)
+
         with gr.Row():
             with gr.Column(scale=1, elem_id="input-panel"):
                 gr.Markdown("### Generate")
                 show_input = gr.Dropdown(choices=AVAILABLE_SHOWS, label="Select Show", value="Sunday Football")
                 generate_btn = gr.Button("Generate Press Release", elem_id="generate-btn", variant="primary")
                 status = gr.Textbox(label="Status", interactive=False, lines=1)
-                gr.Markdown("---\n**How it works**\n1. Supervisor via Genie Space\n2. Style via Knowledge Assistant\n3. Llama 3.3 70B Generation")
+                gr.Markdown("---\n**How it works**\n1. Supervisor fetches live performance data\n2. Style via Knowledge Assistant\n3. Llama 3.3 70B Generation")
+
             with gr.Column(scale=2, elem_id="output-body"):
                 output = gr.Textbox(label="Press Release", lines=28, interactive=False, placeholder="Your press release will appear here...", show_copy_button=True)
-        
+
         generate_btn.click(fn=generate_press_release, inputs=[show_input], outputs=[output, status])
+
     return app
 
 if __name__ == "__main__":
     app = build_ui()
-    app.launch(server_name="0.0.0.0", server_port=int(os.getenv("GRADIO_SERVER_PORT", 7860)))
+    app.launch(server_name="0.0.0.0", server_port=int(os.getenv("GRADIO_SERVER_PORT", 7860)), show_error=True)
