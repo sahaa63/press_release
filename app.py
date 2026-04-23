@@ -12,34 +12,53 @@ AVAILABLE_SHOWS = [
     "Late Night Laughs", "Morning Brew", "Weekend Wrap", "Family Feud Live",
 ]
 
-# ── Image Handling (Base64 for Stability) ─────────────────────────────────────
+# ── Image Handling ────────────────────────────────────────────────────────────
 def get_base64_encoded_image(image_path):
     try:
         with open(image_path, "rb") as img_file:
             return base64.b64encode(img_file.read()).decode('utf-8')
-    except Exception:
-        return ""
+    except Exception: return ""
 
 logo_light_base64 = get_base64_encoded_image("VSNT_BIG.png")
 logo_dark_base64 = get_base64_encoded_image("VSNT_BIG.D.png")
 
-# ── Core Logic ────────────────────────────────────────────────────────────────
-def extract_final_press_release(raw_text: str) -> str:
+# ── Core Logic & Formatting ───────────────────────────────────────────────────
+
+def format_as_press_release(raw_text: str, show_name: str) -> str:
+    """
+    Wraps the raw text in HTML to match the specific 'Card' look.
+    """
+    # Clean the agent noise
     marker = "FOR IMMEDIATE RELEASE"
+    content = raw_text
     if marker in raw_text:
-        parts = raw_text.split(marker)
-        final_draft = marker + parts[-1]
-        final_draft = re.sub(r'<name>.*?</name>', '', final_draft)
-        final_draft = re.sub(r'\[\^.*?\]', '', final_draft)
-        return final_draft.strip()
-    return raw_text
+        content = marker + raw_text.split(marker)[-1]
+    
+    content = re.sub(r'<name>.*?</name>', '', content)
+    content = re.sub(r'\[\^.*?\]', '', content)
+    
+    # Convert newlines to HTML breaks for the content
+    formatted_content = content.replace("\n", "<br>")
+
+    # The HTML Template
+    return f"""
+    <div class="pr-container">
+        <div class="pr-header">
+            <div class="pr-title">PRESS RELEASE</div>
+            <div class="pr-subtitle">{show_name} | FOX | Week 20</div>
+        </div>
+        <div class="pr-content">
+            {formatted_content}
+        </div>
+    </div>
+    """
 
 def generate_press_release(show_name: str) -> tuple[str, str]:
     if not show_name: return "", "Select a show."
     try:
         w = WorkspaceClient()
-        payload = {"input": [{"role": "user", "content": f"Generate a professional press release for '{show_name}'. Return ONLY the final press release text."}]}
-        endpoint_path = f"/serving-endpoints/{SUPERVISOR_ENDPOINT}/invocations"
+        payload = {{"input": [{"role": "user", "content": f"Generate a professional press release for '{{show_name}}'."}]}}
+        endpoint_path = f"/serving-endpoints/{{SUPERVISOR_ENDPOINT}}/invocations"
         raw_response = w.api_client.do("POST", endpoint_path, body=payload)
         
         extracted_text = []
@@ -49,84 +68,73 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
                     text = content_item.get("text", "")
                     if text: extracted_text.append(text)
         
-        clean_text = extract_final_press_release(" ".join(extracted_text))
-        return clean_text, "Generated successfully."
+        raw_output = " ".join(extracted_text)
+        return format_as_press_release(raw_output, show_name), "Generated successfully."
     except Exception as e:
-        return "", f"Error: {str(e)}"
+        return "", f"Error: {{str(e)}}"
 
-# ── CSS (Left-Aligned Header + Consistent UI) ──────────────────────────────────
+# ── CSS ───────────────────────────────────────────────────────────────────────
 CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Source+Serif+4:wght@400&display=swap');
 
-#masthead { 
-    display: flex; 
-    align-items: center; 
-    justify-content: flex-start; /* Aligns content to the LEFT */
-    border-bottom: 1px solid var(--border-color-primary); 
-    padding: 20px 0; 
-    margin-bottom: 24px;
-    gap: 25px; /* Spacing between logo and text */
-}
-
-#versant-logo { 
-    flex: 0 0 180px; 
-}
+#masthead { display: flex; align-items: center; border-bottom: 1px solid var(--border-color-primary); padding: 20px 0; margin-bottom: 24px; gap: 25px; }
+#versant-logo { flex: 0 0 180px; }
 #versant-logo img { width: 100%; height: auto; }
 
-/* Dynamic Theme Switching */
 #logo-dark { display: none; }
-@media (prefers-color-scheme: dark) {
-    #logo-light { display: none; }
-    #logo-dark { display: block; }
+@media (prefers-color-scheme: dark) { #logo-light { display: none; } #logo-dark { display: block; } }
+
+#input-panel { background: var(--block-background-fill); border: 1px solid var(--border-color-primary); border-radius: 8px; padding: 16px; }
+
+/* PRESS RELEASE STYLING */
+.pr-container {
+    background: transparent;
+    padding: 10px;
 }
 
-#masthead-text { 
-    flex: 1;
-    text-align: left; /* Aligns text to the LEFT */
-}
-#masthead-text h1 { 
-    font-family: 'Playfair Display', serif !important; 
-    font-size: 2.2rem !important; 
-    margin: 0 !important; 
+.pr-header {
+    background: #e9e9e1; /* Light beige/paper color from image */
+    color: #1a1a1a;
+    padding: 25px 35px;
+    border-radius: 12px 12px 0 0;
+    border-bottom: 1px solid #d1d1ca;
 }
 
-#input-panel { 
-    background: var(--block-background-fill);
-    border: 1px solid var(--border-color-primary) !important; 
-    border-radius: 8px !important; 
-    padding: 16px !important; 
+.pr-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 1px;
 }
 
-#output-body textarea { 
-    font-family: 'Source Serif 4', serif !important; 
-    font-size: 1.1rem !important; 
-    line-height: 1.7 !important; 
-    padding: 30px !important;
+.pr-subtitle {
+    font-family: 'Source Serif 4', serif;
+    font-size: 16px;
+    opacity: 0.7;
+    margin-top: 5px;
 }
 
-/* Purple Label Accents for 'VERSANT' look */
-.gradio-container label span {
-    background: #6366f1 !important;
-    color: white !important;
-    border-radius: 4px;
-    padding: 2px 8px;
-    font-weight: bold !important;
+.pr-content {
+    background: transparent;
+    padding: 40px 35px;
+    font-family: 'Source Serif 4', serif;
+    font-size: 1.1rem;
+    line-height: 1.8;
+    color: var(--body-text-color);
 }
+
+.gradio-container label span { background: #6366f1 !important; color: white !important; border-radius: 4px; padding: 2px 8px; }
 """
 
 def build_ui() -> gr.Blocks:
     with gr.Blocks(css=CSS, theme=gr.themes.Soft()) as app:
-        # Left-Aligned Header
         gr.HTML(f"""
             <div id="masthead">
                 <div id="versant-logo">
                     <img id="logo-light" src="data:image/png;base64,{logo_light_base64}" />
                     <img id="logo-dark" src="data:image/png;base64,{logo_dark_base64}" />
                 </div>
-                <div id="masthead-text">
-                    <h1>Press Release Generator</h1>
-                    <p>Versant Innovation Pod &nbsp;·&nbsp; Databricks Multi-Agent Supervisor</p>
-                </div>
+                <div id="masthead-text"><h1>Press Release Generator</h1><p>Versant Innovation Pod &nbsp;·&nbsp; Databricks Supervisor</p></div>
             </div>
         """)
         
@@ -135,24 +143,13 @@ def build_ui() -> gr.Blocks:
                 gr.Markdown("### Configuration")
                 show_input = gr.Dropdown(choices=AVAILABLE_SHOWS, label="Select Show", value="Sunday Football")
                 generate_btn = gr.Button("Generate Press Release", variant="primary")
-                
-                status = gr.Textbox(label="System Status", interactive=False, placeholder="Waiting for input...")
-                
-                with gr.Accordion("System Details", open=False):
-                    gr.Markdown("""
-                    1. Fetches data via Genie
-                    2. Style via Knowledge Asst
-                    3. Model: Llama 3.3 70B
-                    """)
+                status = gr.Textbox(label="Status", interactive=False)
+                with gr.Accordion("Details", open=False):
+                    gr.Markdown("1. Genie 2. Knowledge Asst 3. Llama 3.3")
             
-            with gr.Column(scale=2, elem_id="output-body"):
-                output = gr.Textbox(
-                    label="Final Press Release Draft", 
-                    lines=25, 
-                    interactive=False, 
-                    show_copy_button=True,
-                    placeholder="The professional draft will appear here..."
-                )
+            with gr.Column(scale=2):
+                # Switched to HTML for the formatted card
+                output = gr.HTML(label="Final Press Release Draft")
 
         generate_btn.click(fn=generate_press_release, inputs=[show_input], outputs=[output, status])
     return app
