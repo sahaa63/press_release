@@ -59,8 +59,9 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
     if not show_name: return "", "Select a show."
     try:
         w = WorkspaceClient()
-        payload = {"input": [{"role": "user", "content": f"Generate a professional press release for '{show_name}'."}]}
-        endpoint_path = f"/serving-endpoints/{SUPERVISOR_ENDPOINT}/invocations"
+        # Escaping curly braces for the payload inside the f-string
+        payload = {{"input": [{"role": "user", "content": f"Generate a professional press release for '{{show_name}}'."}]}}
+        endpoint_path = f"/serving-endpoints/{{SUPERVISOR_ENDPOINT}}/invocations"
         raw_response = w.api_client.do("POST", endpoint_path, body=payload)
         
         extracted_text = []
@@ -73,7 +74,7 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
         raw_output = " ".join(extracted_text)
         return format_as_press_release(raw_output, show_name), "Generated successfully."
     except Exception as e:
-        return "", f"Error: {str(e)}"
+        return "", f"Error: {{str(e)}}"
 
 # ── UI Layout ──────────────────────────────────────────────────────────────────
 
@@ -85,11 +86,20 @@ CSS = """
 #logo-dark { display: none; }
 @media (prefers-color-scheme: dark) { #logo-light { display: none; } #logo-dark { display: block; } }
 
-#input-panel { background: var(--block-background-fill); border: 1px solid var(--border-color-primary); border-radius: 8px; padding: 16px; }
+/* FIX: Added min-height to ensure the panel does not jump or collapse */
+#input-panel { 
+    background: var(--block-background-fill); 
+    border: 1px solid var(--border-color-primary); 
+    border-radius: 8px; 
+    padding: 16px; 
+    min-height: 800px; 
+}
+
 .gradio-container label span { background: #6366f1 !important; color: white !important; border-radius: 4px; padding: 2px 8px; }
 """
 
 def build_ui() -> gr.Blocks:
+    # Set theme and CSS
     with gr.Blocks(css=CSS, theme=gr.themes.Soft()) as app:
         gr.HTML(f"""
             <div id="masthead">
@@ -120,7 +130,11 @@ def build_ui() -> gr.Blocks:
                     """)
             
             with gr.Column(scale=2):
-                output = gr.HTML(label="Final Press Release Draft")
+                # FIXED: Placeholder with fixed height so the UI stays stable on load
+                output = gr.HTML(
+                    value="<div style='min-height: 600px; display: flex; align-items: center; justify-content: center; opacity: 0.3;'>Select a show and click generate to begin.</div>",
+                    label="Final Press Release Draft"
+                )
 
         generate_btn.click(fn=generate_press_release, inputs=[show_input], outputs=[output, status])
     return app
