@@ -20,12 +20,10 @@ def get_base64_encoded_image(image_path):
     except Exception:
         return ""
 
-# Load images from your repo root
 logo_light_base64 = get_base64_encoded_image("VSNT_BIG.png")
 logo_dark_base64 = get_base64_encoded_image("VSNT_BIG.D.png")
 
 # ── Core Logic ────────────────────────────────────────────────────────────────
-
 def extract_final_press_release(raw_text: str) -> str:
     marker = "FOR IMMEDIATE RELEASE"
     if marker in raw_text:
@@ -56,22 +54,23 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
     except Exception as e:
         return "", f"Error: {str(e)}"
 
-# ── Dynamic CSS ───────────────────────────────────────────────────────────────
+# ── CSS (Restoring Previous Look + Logo Fix) ──────────────────────────────────
 CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Source+Serif+4:wght@400&display=swap');
 
 #masthead { 
     display: flex; 
     align-items: center; 
-    justify-content: center; /* Centers the whole block */
-    border-bottom: 2px solid var(--border-color-primary); 
+    border-bottom: 1px solid var(--border-color-primary); 
     padding: 20px 0; 
     margin-bottom: 24px;
-    gap: 40px;
 }
 
-#versant-logo { flex: 0 0 200px; }
-#versant-logo img { width: 100%; height: auto; transition: 0.3s; }
+#versant-logo { 
+    flex: 0 0 180px; 
+    margin-right: 20px;
+}
+#versant-logo img { width: 100%; height: auto; }
 
 /* Dynamic Theme Switching */
 #logo-dark { display: none; }
@@ -80,11 +79,18 @@ CSS = """
     #logo-dark { display: block; }
 }
 
-#masthead-text { text-align: left; }
+#masthead-text { flex: 1; }
 #masthead-text h1 { 
     font-family: 'Playfair Display', serif !important; 
-    font-size: 2.4rem !important; 
+    font-size: 2.2rem !important; 
     margin: 0 !important; 
+}
+
+#input-panel { 
+    background: var(--block-background-fill);
+    border: 1px solid var(--border-color-primary) !important; 
+    border-radius: 8px !important; 
+    padding: 16px !important; 
 }
 
 #output-body textarea { 
@@ -93,10 +99,20 @@ CSS = """
     line-height: 1.7 !important; 
     padding: 30px !important;
 }
+
+/* Purple Label Accents */
+.gradio-container label span {
+    background: #6366f1 !important;
+    color: white !important;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-weight: bold !important;
+}
 """
 
 def build_ui() -> gr.Blocks:
     with gr.Blocks(css=CSS, theme=gr.themes.Soft()) as app:
+        # Top Header with Logo on Left
         gr.HTML(f"""
             <div id="masthead">
                 <div id="versant-logo">
@@ -111,14 +127,28 @@ def build_ui() -> gr.Blocks:
         """)
         
         with gr.Row():
-            with gr.Column(scale=1):
+            with gr.Column(scale=1, elem_id="input-panel"):
                 gr.Markdown("### Configuration")
                 show_input = gr.Dropdown(choices=AVAILABLE_SHOWS, label="Select Show", value="Sunday Football")
                 generate_btn = gr.Button("Generate Press Release", variant="primary")
-                status = gr.Textbox(label="Status", interactive=False)
                 
+                status = gr.Textbox(label="System Status", interactive=False, placeholder="Waiting for input...")
+                
+                with gr.Accordion("System Details", open=False):
+                    gr.Markdown("""
+                    1. Fetches data via Genie
+                    2. Style via Knowledge Asst
+                    3. Model: Llama 3.3 70B
+                    """)
+            
             with gr.Column(scale=2, elem_id="output-body"):
-                output = gr.Textbox(label="Final Press Release Draft", lines=22, interactive=False, show_copy_button=True)
+                output = gr.Textbox(
+                    label="Final Press Release Draft", 
+                    lines=25, 
+                    interactive=False, 
+                    show_copy_button=True,
+                    placeholder="The professional draft will appear here..."
+                )
 
         generate_btn.click(fn=generate_press_release, inputs=[show_input], outputs=[output, status])
     return app
