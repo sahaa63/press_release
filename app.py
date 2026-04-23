@@ -61,6 +61,7 @@ CSS = """
 #masthead { 
     display: flex; 
     align-items: center; 
+    justify-content: center;
     border-bottom: 1px solid var(--border-color-primary); 
     padding: 20px 0; 
     margin-bottom: 24px;
@@ -79,7 +80,7 @@ CSS = """
     #logo-dark { display: block; }
 }
 
-#masthead-text { flex: 1; }
+#masthead-text { flex: none; text-align:center;}
 #masthead-text h1 { 
     font-family: 'Playfair Display', serif !important; 
     font-size: 2.2rem !important; 
