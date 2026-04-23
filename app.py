@@ -20,7 +20,6 @@ def get_base64_encoded_image(image_path):
     except Exception:
         return ""
 
-# These will load the images from your repository root
 logo_light_base64 = get_base64_encoded_image("VSNT_BIG.png")
 logo_dark_base64 = get_base64_encoded_image("VSNT_BIG.D.png")
 
@@ -55,18 +54,18 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
     except Exception as e:
         return "", f"Error: {str(e)}"
 
-# ── CSS (Centered Header + Restored Visuals) ──────────────────────────────────
+# ── CSS (Left-Aligned Header + Consistent UI) ──────────────────────────────────
 CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Source+Serif+4:wght@400&display=swap');
 
 #masthead { 
     display: flex; 
     align-items: center; 
-    justify-content: center; /* Centers the Logo + Text unit */
+    justify-content: flex-start; /* Aligns content to the LEFT */
     border-bottom: 1px solid var(--border-color-primary); 
     padding: 20px 0; 
     margin-bottom: 24px;
-    gap: 30px; /* Space between logo and text */
+    gap: 25px; /* Spacing between logo and text */
 }
 
 #versant-logo { 
@@ -82,8 +81,8 @@ CSS = """
 }
 
 #masthead-text { 
-    flex: none; 
-    text-align: center; /* Centers the text lines */
+    flex: 1;
+    text-align: left; /* Aligns text to the LEFT */
 }
 #masthead-text h1 { 
     font-family: 'Playfair Display', serif !important; 
@@ -117,7 +116,7 @@ CSS = """
 
 def build_ui() -> gr.Blocks:
     with gr.Blocks(css=CSS, theme=gr.themes.Soft()) as app:
-        # Centered Header
+        # Left-Aligned Header
         gr.HTML(f"""
             <div id="masthead">
                 <div id="versant-logo">
@@ -139,7 +138,6 @@ def build_ui() -> gr.Blocks:
                 
                 status = gr.Textbox(label="System Status", interactive=False, placeholder="Waiting for input...")
                 
-                # Restored the Accordion
                 with gr.Accordion("System Details", open=False):
                     gr.Markdown("""
                     1. Fetches data via Genie
