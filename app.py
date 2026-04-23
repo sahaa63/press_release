@@ -33,6 +33,7 @@ def format_as_press_release(raw_text: str, show_name: str) -> str:
     
     content = re.sub(r'<name>.*?</name>', '', content)
     content = re.sub(r'\[\^.*?\]', '', content)
+    content = content.strip()
     
     # Logic to handle dynamic dark/light colors inside the HTML block
     return f"""
