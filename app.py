@@ -20,6 +20,7 @@ def get_base64_encoded_image(image_path):
     except Exception:
         return ""
 
+# These will load the images from your repository root
 logo_light_base64 = get_base64_encoded_image("VSNT_BIG.png")
 logo_dark_base64 = get_base64_encoded_image("VSNT_BIG.D.png")
 
@@ -54,22 +55,22 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
     except Exception as e:
         return "", f"Error: {str(e)}"
 
-# ── CSS (Restoring Previous Look + Logo Fix) ──────────────────────────────────
+# ── CSS (Centered Header + Restored Visuals) ──────────────────────────────────
 CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Source+Serif+4:wght@400&display=swap');
 
 #masthead { 
     display: flex; 
     align-items: center; 
-    justify-content: center;
+    justify-content: center; /* Centers the Logo + Text unit */
     border-bottom: 1px solid var(--border-color-primary); 
     padding: 20px 0; 
     margin-bottom: 24px;
+    gap: 30px; /* Space between logo and text */
 }
 
 #versant-logo { 
     flex: 0 0 180px; 
-    margin-right: 20px;
 }
 #versant-logo img { width: 100%; height: auto; }
 
@@ -80,7 +81,10 @@ CSS = """
     #logo-dark { display: block; }
 }
 
-#masthead-text { flex: none; text-align:center;}
+#masthead-text { 
+    flex: none; 
+    text-align: center; /* Centers the text lines */
+}
 #masthead-text h1 { 
     font-family: 'Playfair Display', serif !important; 
     font-size: 2.2rem !important; 
@@ -101,7 +105,7 @@ CSS = """
     padding: 30px !important;
 }
 
-/* Purple Label Accents */
+/* Purple Label Accents for 'VERSANT' look */
 .gradio-container label span {
     background: #6366f1 !important;
     color: white !important;
@@ -113,7 +117,7 @@ CSS = """
 
 def build_ui() -> gr.Blocks:
     with gr.Blocks(css=CSS, theme=gr.themes.Soft()) as app:
-        # Top Header with Logo on Left
+        # Centered Header
         gr.HTML(f"""
             <div id="masthead">
                 <div id="versant-logo">
@@ -135,6 +139,7 @@ def build_ui() -> gr.Blocks:
                 
                 status = gr.Textbox(label="System Status", interactive=False, placeholder="Waiting for input...")
                 
+                # Restored the Accordion
                 with gr.Accordion("System Details", open=False):
                     gr.Markdown("""
                     1. Fetches data via Genie
