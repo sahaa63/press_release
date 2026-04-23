@@ -5,14 +5,14 @@ import base64
 from databricks.sdk import WorkspaceClient
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-SUPERVISOR_ENDPOINT = "mas-8821e19b-endpoint"
+SUPERVISOR_ENDPOINT = "mas-8821e19b-endpoint" # [cite: 30]
 AVAILABLE_SHOWS = [
     "Sunday Football", "Crime Files", "Heartland Hospital", "The Baking Hour",
     "Quiz Champions", "Night Detectives", "Coast Guard Rescue", "Startup Stories",
     "Late Night Laughs", "Morning Brew", "Weekend Wrap", "Family Feud Live",
 ]
 
-# ── Image Handling ────────────────────────────────────────────────────────────
+# ── Image Handling (Base64) ───────────────────────────────────────────────────
 def get_base64_encoded_image(image_path):
     try:
         with open(image_path, "rb") as img_file:
@@ -25,7 +25,7 @@ logo_dark_base64 = get_base64_encoded_image("VSNT_BIG.D.png")
 # ── Core Logic & Simplified Formatting ────────────────────────────────────────
 
 def format_as_press_release(raw_text: str, show_name: str) -> str:
-    # 1. Clean the agent noise
+    # 1. Clean the agent noise 
     marker = "FOR IMMEDIATE RELEASE"
     content = raw_text
     if marker in raw_text:
@@ -34,7 +34,7 @@ def format_as_press_release(raw_text: str, show_name: str) -> str:
     content = re.sub(r'<name>.*?</name>', '', content)
     content = re.sub(r'\[\^.*?\]', '', content).strip()
 
-    # 2. Simplified HTML Structure for perfect alignment
+    # 2. Simplified HTML Structure [cite: 40]
     return f"""
     <div style="font-family: Arial, sans-serif; max-width: 100%; margin: 0 auto; padding: 30px; 
                 border: 1px solid var(--border-color-primary); border-radius: 8px; background: var(--background-fill-secondary);">
@@ -58,9 +58,9 @@ def format_as_press_release(raw_text: str, show_name: str) -> str:
 def generate_press_release(show_name: str) -> tuple[str, str]:
     if not show_name: return "", "Select a show."
     try:
-        w = WorkspaceClient()
-        payload = {"input": [{"role": "user", "content": f"Generate a professional press release for '{show_name}'."}]}
-        endpoint_path = f"/serving-endpoints/{SUPERVISOR_ENDPOINT}/invocations"
+        w = WorkspaceClient() # [cite: 44, 56]
+        payload = {{"input": [{"role": "user", "content": f"Generate a professional press release for '{{show_name}}'."}]}} # [cite: 67]
+        endpoint_path = f"/serving-endpoints/{{SUPERVISOR_ENDPOINT}}/invocations"
         raw_response = w.api_client.do("POST", endpoint_path, body=payload)
         
         extracted_text = []
@@ -73,7 +73,7 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
         raw_output = " ".join(extracted_text)
         return format_as_press_release(raw_output, show_name), "Generated successfully."
     except Exception as e:
-        return "", f"Error: {str(e)}"
+        return "", f"Error: {{str(e)}}"
 
 # ── UI Layout ──────────────────────────────────────────────────────────────────
 
@@ -86,16 +86,20 @@ CSS = """
 @media (prefers-color-scheme: dark) { #logo-light { display: none; } #logo-dark { display: block; } }
 
 #input-panel { background: var(--block-background-fill); border: 1px solid var(--border-color-primary); border-radius: 8px; padding: 16px; }
+
+/* FIX: Keep the right column at a fixed height so layout doesn't jump */
+#output-col { min-height: 700px; } 
+
 .gradio-container label span { background: #6366f1 !important; color: white !important; border-radius: 4px; padding: 2px 8px; }
 """
 
 def build_ui() -> gr.Blocks:
-    with gr.Blocks(css=CSS, theme=gr.themes.Soft()) as app:
+    with gr.Blocks(css=CSS, theme=gr.themes.Soft()) as app: # 
         gr.HTML(f"""
             <div id="masthead">
                 <div id="versant-logo">
-                    <img id="logo-light" src="data:image/png;base64,{logo_light_base64}" />
-                    <img id="logo-dark" src="data:image/png;base64,{logo_dark_base64}" />
+                    <img id="logo-light" src="data:image/png;base64,{{logo_light_base64}}" />
+                    <img id="logo-dark" src="data:image/png;base64,{{logo_dark_base64}}" />
                 </div>
                 <div id="masthead-text">
                     <h1 style="margin:0; font-size: 2.2rem;">Press Release Generator</h1>
@@ -112,19 +116,23 @@ def build_ui() -> gr.Blocks:
                 status = gr.Textbox(label="Status", interactive=False)
                 
                 with gr.Accordion("System Details", open=False):
-                    gr.Markdown("""
+                    gr.Markdown(\"\"\"
                     **Technical Stack:** [cite: 5, 6]
-                    * **Data:** Fetches real-time metrics via Genie (SQL Warehouse) 
-                    * **Style:** Formats content via Knowledge Assistant (RAG) [cite: 7, 24]
+                    * **Data:** Fetches real-time metrics via Genie (SQL Warehouse) [cite: 18, 50]
+                    * **Style:** Formats content via Knowledge Assistant (RAG) [cite: 25, 51]
                     * **Inference:** Llama 3.3 70B [cite: 10, 39]
-                    """)
+                    \"\"\")
             
-            with gr.Column(scale=2):
-                output = gr.HTML(label="Final Press Release Draft")
+            with gr.Column(scale=2, elem_id="output-col"):
+                # Initial Placeholder so the layout is locked from the start
+                output = gr.HTML(
+                    value="<div style='opacity: 0.3; padding: 100px; text-align: center; border: 1px dashed var(--border-color-primary); border-radius: 8px;'>Your generated press release will appear here...</div>",
+                    label="Final Press Release Draft"
+                )
 
         generate_btn.click(fn=generate_press_release, inputs=[show_input], outputs=[output, status])
     return app
 
 if __name__ == "__main__":
     app = build_ui()
-    app.launch(server_name="0.0.0.0", server_port=int(os.getenv("GRADIO_SERVER_PORT", 7860)))
+    app.launch(server_name="0.0.0.0", server_port=int(os.getenv("GRADIO_SERVER_PORT", 7860))) # [cite: 42, 47]
