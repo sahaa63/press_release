@@ -19,14 +19,13 @@ def get_base64_encoded_image(image_path):
             return base64.b64encode(img_file.read()).decode('utf-8')
     except Exception: return ""
 
-# Load images from repo root [cite: 42, 45]
 logo_light_base64 = get_base64_encoded_image("VSNT_BIG.png")
 logo_dark_base64 = get_base64_encoded_image("VSNT_BIG.D.png")
 
 # ── Core Logic & Formatting ───────────────────────────────────────────────────
 
 def format_as_press_release(raw_text: str, show_name: str) -> str:
-    # Clean the agent noise [cite: 32, 47]
+    # Clean the agent noise
     marker = "FOR IMMEDIATE RELEASE"
     content = raw_text
     if marker in raw_text:
@@ -35,10 +34,7 @@ def format_as_press_release(raw_text: str, show_name: str) -> str:
     content = re.sub(r'<name>.*?</name>', '', content)
     content = re.sub(r'\[\^.*?\]', '', content)
     
-    # FIX: Strip whitespace from every line to ensure perfect left-alignment
-    lines = [line.strip() for line in content.split('\n') if line.strip()]
-    formatted_content = "<br><br>".join(lines)
-
+    # Logic to handle dynamic dark/light colors inside the HTML block
     return f"""
     <div class="notebook-style-container">
         <div class="notebook-header">
@@ -46,7 +42,7 @@ def format_as_press_release(raw_text: str, show_name: str) -> str:
             <p>{show_name} &nbsp;|&nbsp; FOX &nbsp;|&nbsp; Week 20</p>
         </div>
         <div class="notebook-body">
-            {formatted_content}
+            {content.replace(chr(10), '<br>')}
         </div>
         <hr class="notebook-divider">
         <p class="notebook-footer">
@@ -58,12 +54,9 @@ def format_as_press_release(raw_text: str, show_name: str) -> str:
 def generate_press_release(show_name: str) -> tuple[str, str]:
     if not show_name: return "", "Please select a show."
     try:
-        # Auth handled automatically in Databricks Apps [cite: 44, 56]
         w = WorkspaceClient()
-        payload = {{"input": [{"role": "user", "content": f"Generate a professional press release for '{{show_name}}'."}]}}
-        
-        # Use direct API invocation for Supervisor [cite: 30, 47]
-        endpoint_path = f"/serving-endpoints/{{SUPERVISOR_ENDPOINT}}/invocations"
+        payload = {"input": [{"role": "user", "content": f"Generate a professional press release for '{show_name}'."}]}
+        endpoint_path = f"/serving-endpoints/{SUPERVISOR_ENDPOINT}/invocations"
         raw_response = w.api_client.do("POST", endpoint_path, body=payload)
         
         extracted_text = []
@@ -76,9 +69,9 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
         raw_output = " ".join(extracted_text)
         return format_as_press_release(raw_output, show_name), "Generated successfully."
     except Exception as e:
-        return "", f"Error: {{str(e)}}"
+        return "", f"Error: {str(e)}"
 
-# ── CSS (Dynamic Themes + Layout Fixes) ───────────────────────────────────────
+# ── CSS (Dynamic Themes + Fixed Layout) ───────────────────────────────────────
 CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Source+Serif+4:wght@400&display=swap');
 
@@ -91,8 +84,10 @@ CSS = """
 
 #input-panel { background: var(--block-background-fill); border: 1px solid var(--border-color-primary); border-radius: 8px; padding: 16px; }
 
+/* FIX: Ensure the output column has a minimum height so layout doesn't collapse */
 #output-col { min-height: 600px; }
 
+/* NOTEBOOK HTML STYLING (DYNAMIC) */
 .notebook-style-container {
     font-family: 'Source Serif 4', serif;
     max-width: 100%;
@@ -104,7 +99,7 @@ CSS = """
 }
 
 .notebook-header {
-    background: #1a1a2e; 
+    background: #1a1a2e; /* Classic Dark Blue Header */
     color: #ffffff !important;
     padding: 20px 25px;
     border-radius: 6px;
@@ -117,8 +112,8 @@ CSS = """
 .notebook-body {
     line-height: 1.8;
     color: var(--body-text-color);
+    white-space: pre-wrap;
     font-size: 1.05rem;
-    text-align: left;
 }
 
 .notebook-divider { margin-top: 30px; border: none; border-top: 1px solid var(--border-color-primary); opacity: 0.3; }
@@ -132,8 +127,8 @@ def build_ui() -> gr.Blocks:
         gr.HTML(f"""
             <div id="masthead">
                 <div id="versant-logo">
-                    <img id="logo-light" src="data:image/png;base64,{{logo_light_base64}}" />
-                    <img id="logo-dark" src="data:image/png;base64,{{logo_dark_base64}}" />
+                    <img id="logo-light" src="data:image/png;base64,{logo_light_base64}" />
+                    <img id="logo-dark" src="data:image/png;base64,{logo_dark_base64}" />
                 </div>
                 <div id="masthead-text"><h1>Press Release Generator</h1><p>Versant Innovation Pod &nbsp;·&nbsp; Databricks Supervisor</p></div>
             </div>
@@ -146,15 +141,17 @@ def build_ui() -> gr.Blocks:
                 generate_btn = gr.Button("Generate Press Release", variant="primary")
                 status = gr.Textbox(label="Status", interactive=False)
                 
+                # RESTORED FULL SYSTEM DETAILS
                 with gr.Accordion("System Details", open=False):
-                    gr.Markdown(\"\"\"
-                    **Technical Stack:** [cite: 7]
-                    1. **Data:** Genie (SQL Warehouse) [cite: 18]
-                    2. **Style:** Knowledge Assistant (RAG) [cite: 24]
-                    3. **Inference:** Llama 3.3 70B [cite: 39]
-                    \"\"\")
+                    gr.Markdown("""
+                    **Technical Stack:**
+                    1. **Data:** Fetches real-time metrics via Genie (SQL Warehouse)
+                    2. **Style:** Formats content via Knowledge Assistant (RAG)
+                    3. **Inference:** Llama 3.3 70B
+                    """)
             
             with gr.Column(scale=2, elem_id="output-col"):
+                # Initial Placeholder so the screen isn't empty
                 output = gr.HTML(
                     value="<div style='opacity: 0.3; padding: 50px; text-align: center;'>Your generated press release will appear here...</div>",
                     label="Final Press Release Draft"
