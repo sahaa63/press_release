@@ -5,12 +5,12 @@ import base64
 from databricks.sdk import WorkspaceClient
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-SUPERVISOR_ENDPOINT = "mas-8821e19b-endpoint" [cite: 30]
+SUPERVISOR_ENDPOINT = "mas-8821e19b-endpoint"
 AVAILABLE_SHOWS = [
     "Sunday Football", "Crime Files", "Heartland Hospital", "The Baking Hour",
     "Quiz Champions", "Night Detectives", "Coast Guard Rescue", "Startup Stories",
     "Late Night Laughs", "Morning Brew", "Weekend Wrap", "Family Feud Live",
-] [cite: 13, 16]
+]
 
 # ── Image Handling ────────────────────────────────────────────────────────────
 def get_base64_encoded_image(image_path):
@@ -19,6 +19,7 @@ def get_base64_encoded_image(image_path):
             return base64.b64encode(img_file.read()).decode('utf-8')
     except Exception: return ""
 
+# Load images from repo root [cite: 42, 45]
 logo_light_base64 = get_base64_encoded_image("VSNT_BIG.png")
 logo_dark_base64 = get_base64_encoded_image("VSNT_BIG.D.png")
 
@@ -31,12 +32,12 @@ def format_as_press_release(raw_text: str, show_name: str) -> str:
     if marker in raw_text:
         content = marker + raw_text.split(marker)[-1]
     
-    content = re.sub(r'<name>.*?</name>', '', content) [cite: 47]
+    content = re.sub(r'<name>.*?</name>', '', content)
     content = re.sub(r'\[\^.*?\]', '', content)
     
-    # Ensure strict left-alignment by stripping leading whitespace from all lines
-    lines = [line.strip() for line in content.split('\n')]
-    formatted_content = "<br>".join(lines)
+    # FIX: Strip whitespace from every line to ensure perfect left-alignment
+    lines = [line.strip() for line in content.split('\n') if line.strip()]
+    formatted_content = "<br><br>".join(lines)
 
     return f"""
     <div class="notebook-style-container">
@@ -57,10 +58,13 @@ def format_as_press_release(raw_text: str, show_name: str) -> str:
 def generate_press_release(show_name: str) -> tuple[str, str]:
     if not show_name: return "", "Please select a show."
     try:
-        w = WorkspaceClient() [cite: 44, 56]
-        payload = {{"input": [{"role": "user", "content": f"Generate a professional press release for '{show_name}'."}]}} [cite: 47, 58]
-        endpoint_path = f"/serving-endpoints/{SUPERVISOR_ENDPOINT}/invocations" [cite: 30, 44]
-        raw_response = w.api_client.do("POST", endpoint_path, body=payload) [cite: 44]
+        # Auth handled automatically in Databricks Apps [cite: 44, 56]
+        w = WorkspaceClient()
+        payload = {{"input": [{"role": "user", "content": f"Generate a professional press release for '{{show_name}}'."}]}}
+        
+        # Use direct API invocation for Supervisor [cite: 30, 47]
+        endpoint_path = f"/serving-endpoints/{{SUPERVISOR_ENDPOINT}}/invocations"
+        raw_response = w.api_client.do("POST", endpoint_path, body=payload)
         
         extracted_text = []
         if "output" in raw_response:
@@ -72,24 +76,23 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
         raw_output = " ".join(extracted_text)
         return format_as_press_release(raw_output, show_name), "Generated successfully."
     except Exception as e:
-        return "", f"Error: {str(e)}"
+        return "", f"Error: {{str(e)}}"
 
-# ── CSS (Dynamic Themes + Alignment Fix) ──────────────────────────────────────
+# ── CSS (Dynamic Themes + Layout Fixes) ───────────────────────────────────────
 CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Source+Serif+4:wght@400&display=swap'); [cite: 45]
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Source+Serif+4:wght@400&display=swap');
 
 #masthead { display: flex; align-items: center; border-bottom: 1px solid var(--border-color-primary); padding: 20px 0; margin-bottom: 24px; gap: 25px; }
 #versant-logo { flex: 0 0 180px; }
 #versant-logo img { width: 100%; height: auto; }
 
 #logo-dark { display: none; }
-@media (prefers-color-scheme: dark) { #logo-light { display: none; } #logo-dark { display: block; } } [cite: 45]
+@media (prefers-color-scheme: dark) { #logo-light { display: none; } #logo-dark { display: block; } }
 
 #input-panel { background: var(--block-background-fill); border: 1px solid var(--border-color-primary); border-radius: 8px; padding: 16px; }
 
 #output-col { min-height: 600px; }
 
-/* NOTEBOOK HTML STYLING (DYNAMIC) */
 .notebook-style-container {
     font-family: 'Source Serif 4', serif;
     max-width: 100%;
@@ -114,9 +117,8 @@ CSS = """
 .notebook-body {
     line-height: 1.8;
     color: var(--body-text-color);
-    white-space: pre-wrap;
     font-size: 1.05rem;
-    text-align: left; /* FIX: Strict left alignment */
+    text-align: left;
 }
 
 .notebook-divider { margin-top: 30px; border: none; border-top: 1px solid var(--border-color-primary); opacity: 0.3; }
@@ -130,12 +132,12 @@ def build_ui() -> gr.Blocks:
         gr.HTML(f"""
             <div id="masthead">
                 <div id="versant-logo">
-                    <img id="logo-light" src="data:image/png;base64,{logo_light_base64}" />
-                    <img id="logo-dark" src="data:image/png;base64,{logo_dark_base64}" />
+                    <img id="logo-light" src="data:image/png;base64,{{logo_light_base64}}" />
+                    <img id="logo-dark" src="data:image/png;base64,{{logo_dark_base64}}" />
                 </div>
                 <div id="masthead-text"><h1>Press Release Generator</h1><p>Versant Innovation Pod &nbsp;·&nbsp; Databricks Supervisor</p></div>
             </div>
-        """) [cite: 45]
+        """)
         
         with gr.Row():
             with gr.Column(scale=1, elem_id="input-panel"):
@@ -145,18 +147,18 @@ def build_ui() -> gr.Blocks:
                 status = gr.Textbox(label="Status", interactive=False)
                 
                 with gr.Accordion("System Details", open=False):
-                    gr.Markdown("""
-                    **Technical Stack:**
-                    1. **Data:** Fetches real-time metrics via Genie (SQL Warehouse) [cite: 7, 52]
-                    2. **Style:** Formats content via Knowledge Assistant (RAG) [cite: 7, 26]
-                    3. **Inference:** Llama 3.3 70B [cite: 10, 39]
-                    """) [cite: 32, 54]
+                    gr.Markdown(\"\"\"
+                    **Technical Stack:** [cite: 7]
+                    1. **Data:** Genie (SQL Warehouse) [cite: 18]
+                    2. **Style:** Knowledge Assistant (RAG) [cite: 24]
+                    3. **Inference:** Llama 3.3 70B [cite: 39]
+                    \"\"\")
             
             with gr.Column(scale=2, elem_id="output-col"):
                 output = gr.HTML(
                     value="<div style='opacity: 0.3; padding: 50px; text-align: center;'>Your generated press release will appear here...</div>",
                     label="Final Press Release Draft"
-                ) [cite: 41, 43]
+                )
 
         generate_btn.click(fn=generate_press_release, inputs=[show_input], outputs=[output, status])
     return app
