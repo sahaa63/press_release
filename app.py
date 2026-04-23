@@ -107,11 +107,11 @@ def build_ui():
                 
                 with gr.Accordion("System Details", open=False):
                     gr.Markdown("""
-                    **Technical Stack:** [cite: 5]
-                    * **Data Layer:** Synthetic TV performance stored in Delta tables [cite: 13, 14]
-                    * **Processing:** Supervisor routes to Genie Space for live metrics [cite: 31, 33]
-                    * **Style:** Grounded via Knowledge Assistant (RAG) [cite: 31, 51]
-                    * **Serving:** Databricks Apps (Gradio) [cite: 42]
+                    **Technical Stack:**
+                    * **Data Layer:** Synthetic TV performance stored in Delta tables 
+                    * **Processing:** Supervisor routes to Genie Space for live metrics 
+                    * **Style:** Grounded via Knowledge Assistant (RAG) 
+                    * **Serving:** Databricks Apps (Gradio)
                     """)
             
             with gr.Column(scale=2, elem_id="output-body"):
