@@ -25,9 +25,6 @@ logo_dark_base64 = get_base64_encoded_image("VSNT_BIG.D.png")
 # ── Core Logic & Formatting ───────────────────────────────────────────────────
 
 def format_as_press_release(raw_text: str, show_name: str) -> str:
-    """
-    Wraps the raw text in HTML to match the specific 'Card' look.
-    """
     # Clean the agent noise
     marker = "FOR IMMEDIATE RELEASE"
     content = raw_text
@@ -37,10 +34,9 @@ def format_as_press_release(raw_text: str, show_name: str) -> str:
     content = re.sub(r'<name>.*?</name>', '', content)
     content = re.sub(r'\[\^.*?\]', '', content)
     
-    # Convert newlines to HTML breaks for the content
+    # Convert newlines to HTML breaks
     formatted_content = content.replace("\n", "<br>")
 
-    # The HTML Template
     return f"""
     <div class="pr-container">
         <div class="pr-header">
@@ -57,8 +53,17 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
     if not show_name: return "", "Select a show."
     try:
         w = WorkspaceClient()
-        payload = {{"input": [{"role": "user", "content": f"Generate a professional press release for '{{show_name}}'."}]}}
-        endpoint_path = f"/serving-endpoints/{{SUPERVISOR_ENDPOINT}}/invocations"
+        # FIXED: Corrected f-string dictionary syntax
+        payload = {
+            "input": [
+                {
+                    "role": "user", 
+                    "content": f"Generate a professional press release for '{show_name}'."
+                }
+            ]
+        }
+        
+        endpoint_path = f"/serving-endpoints/{SUPERVISOR_ENDPOINT}/invocations"
         raw_response = w.api_client.do("POST", endpoint_path, body=payload)
         
         extracted_text = []
@@ -71,7 +76,8 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
         raw_output = " ".join(extracted_text)
         return format_as_press_release(raw_output, show_name), "Generated successfully."
     except Exception as e:
-        return "", f"Error: {{str(e)}}"
+        # FIXED: Corrected error reporting
+        return "", f"Error: {str(e)}"
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
 CSS = """
@@ -86,42 +92,11 @@ CSS = """
 
 #input-panel { background: var(--block-background-fill); border: 1px solid var(--border-color-primary); border-radius: 8px; padding: 16px; }
 
-/* PRESS RELEASE STYLING */
-.pr-container {
-    background: transparent;
-    padding: 10px;
-}
-
-.pr-header {
-    background: #e9e9e1; /* Light beige/paper color from image */
-    color: #1a1a1a;
-    padding: 25px 35px;
-    border-radius: 12px 12px 0 0;
-    border-bottom: 1px solid #d1d1ca;
-}
-
-.pr-title {
-    font-family: 'Playfair Display', serif;
-    font-size: 28px;
-    font-weight: 800;
-    letter-spacing: 1px;
-}
-
-.pr-subtitle {
-    font-family: 'Source Serif 4', serif;
-    font-size: 16px;
-    opacity: 0.7;
-    margin-top: 5px;
-}
-
-.pr-content {
-    background: transparent;
-    padding: 40px 35px;
-    font-family: 'Source Serif 4', serif;
-    font-size: 1.1rem;
-    line-height: 1.8;
-    color: var(--body-text-color);
-}
+.pr-container { background: transparent; padding: 10px; width: 100%; }
+.pr-header { background: #e9e9e1; color: #1a1a1a; padding: 25px 35px; border-radius: 12px 12px 0 0; border-bottom: 1px solid #d1d1ca; }
+.pr-title { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 800; letter-spacing: 1px; }
+.pr-subtitle { font-family: 'Source Serif 4', serif; font-size: 16px; opacity: 0.7; margin-top: 5px; }
+.pr-content { background: rgba(255,255,255,0.05); padding: 40px 35px; font-family: 'Source Serif 4', serif; font-size: 1.1rem; line-height: 1.8; color: var(--body-text-color); border-radius: 0 0 12px 12px; }
 
 .gradio-container label span { background: #6366f1 !important; color: white !important; border-radius: 4px; padding: 2px 8px; }
 """
@@ -148,7 +123,6 @@ def build_ui() -> gr.Blocks:
                     gr.Markdown("1. Genie 2. Knowledge Asst 3. Llama 3.3")
             
             with gr.Column(scale=2):
-                # Switched to HTML for the formatted card
                 output = gr.HTML(label="Final Press Release Draft")
 
         generate_btn.click(fn=generate_press_release, inputs=[show_input], outputs=[output, status])
