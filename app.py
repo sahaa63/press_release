@@ -24,7 +24,7 @@ logo_dark_base64 = get_base64_encoded_image("VSNT_BIG.D.png")
 
 # ── Core Logic & Simplified Formatting ────────────────────────────────────────
 
-def format_as_press_release(raw_text: str, show_name: str) -> str:
+def format_as_press_release(raw_text, show_name):
     # 1. Clean the agent noise
     marker = "FOR IMMEDIATE RELEASE"
     content = raw_text
@@ -55,13 +55,21 @@ def format_as_press_release(raw_text: str, show_name: str) -> str:
     </div>
     """
 
-def generate_press_release(show_name: str) -> tuple[str, str]:
+def generate_press_release(show_name):
     if not show_name: return "", "Select a show."
     try:
         w = WorkspaceClient()
-        # Escaping curly braces for the payload inside the f-string
-        payload = {{"input": [{"role": "user", "content": f"Generate a professional press release for '{{show_name}}'."}]}}
-        endpoint_path = f"/serving-endpoints/{{SUPERVISOR_ENDPOINT}}/invocations"
+        # Removed f-string from payload to avoid brace confusion
+        payload = {
+            "input": [
+                {
+                    "role": "user", 
+                    "content": "Generate a professional press release for '" + show_name + "'."
+                }
+            ]
+        }
+        
+        endpoint_path = "/serving-endpoints/" + SUPERVISOR_ENDPOINT + "/invocations"
         raw_response = w.api_client.do("POST", endpoint_path, body=payload)
         
         extracted_text = []
@@ -74,7 +82,8 @@ def generate_press_release(show_name: str) -> tuple[str, str]:
         raw_output = " ".join(extracted_text)
         return format_as_press_release(raw_output, show_name), "Generated successfully."
     except Exception as e:
-        return "", f"Error: {{str(e)}}"
+        # Standard string concatenation to avoid f-string errors
+        return "", "Error: " + str(e)
 
 # ── UI Layout ──────────────────────────────────────────────────────────────────
 
@@ -86,7 +95,6 @@ CSS = """
 #logo-dark { display: none; }
 @media (prefers-color-scheme: dark) { #logo-light { display: none; } #logo-dark { display: block; } }
 
-/* FIX: Added min-height to ensure the panel does not jump or collapse */
 #input-panel { 
     background: var(--block-background-fill); 
     border: 1px solid var(--border-color-primary); 
@@ -98,8 +106,7 @@ CSS = """
 .gradio-container label span { background: #6366f1 !important; color: white !important; border-radius: 4px; padding: 2px 8px; }
 """
 
-def build_ui() -> gr.Blocks:
-    # Set theme and CSS
+def build_ui():
     with gr.Blocks(css=CSS, theme=gr.themes.Soft()) as app:
         gr.HTML(f"""
             <div id="masthead">
@@ -122,15 +129,14 @@ def build_ui() -> gr.Blocks:
                 status = gr.Textbox(label="Status", interactive=False)
                 
                 with gr.Accordion("System Details", open=False):
-                    gr.Markdown("""
-                    **Technical Stack:** [cite: 5, 6]
-                    * **Data:** Fetches real-time metrics via Genie (SQL Warehouse) 
-                    * **Style:** Formats content via Knowledge Assistant (RAG) [cite: 7, 24]
-                    * **Inference:** Llama 3.3 70B [cite: 10, 39]
-                    """)
+                    gr.Markdown(\"\"\"
+                    **Technical Stack:**
+                    * **Data:** Fetches real-time metrics via Genie (SQL Warehouse) [cite: 50]
+                    * **Style:** Formats content via Knowledge Assistant (RAG) [cite: 51]
+                    * **Inference:** Llama 3.3 70B [cite: 39]
+                    \"\"\")
             
             with gr.Column(scale=2):
-                # FIXED: Placeholder with fixed height so the UI stays stable on load
                 output = gr.HTML(
                     value="<div style='min-height: 600px; display: flex; align-items: center; justify-content: center; opacity: 0.3;'>Select a show and click generate to begin.</div>",
                     label="Final Press Release Draft"
