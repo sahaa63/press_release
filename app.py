@@ -22,9 +22,10 @@ def get_base64_encoded_image(image_path):
 logo_light_base64 = get_base64_encoded_image("VSNT_BIG.png")
 logo_dark_base64 = get_base64_encoded_image("VSNT_BIG.D.png")
 
-# ── Core Logic & Simplified Formatting ────────────────────────────────────────
+# ── Core Logic & Formatting ───────────────────────────────────────────────────
 
 def format_as_press_release(raw_text, show_name):
+    # 1. Clean the agent noise and metadata tags [cite: 32, 47]
     marker = "FOR IMMEDIATE RELEASE"
     content = raw_text
     if marker in raw_text:
@@ -33,7 +34,7 @@ def format_as_press_release(raw_text, show_name):
     content = re.sub(r'<name>.*?</name>', '', content)
     content = re.sub(r'\[\^.*?\]', '', content).strip()
 
-    # Use standard string addition to avoid f-string crashes with large data
+    # 2. Simplified HTML Structure matching notebook style 
     html = '<div style="font-family: Arial, sans-serif; max-width: 100%; margin: 0 auto; padding: 30px; border: 1px solid var(--border-color-primary); border-radius: 8px; background: var(--background-fill-secondary);">'
     html += '<div style="background: #1a1a2e; color: white; padding: 15px 20px; border-radius: 6px; margin-bottom: 24px;">'
     html += '<h2 style="margin:0; font-size: 24px; color: white !important;">PRESS RELEASE</h2>'
@@ -46,15 +47,10 @@ def format_as_press_release(raw_text, show_name):
 def generate_press_release(show_name):
     if not show_name: return "", "Select a show."
     try:
-        w = WorkspaceClient()
-        payload = {
-            "input": [
-                {
-                    "role": "user", 
-                    "content": "Generate a professional press release for '" + show_name + "'."
-                }
-            ]
-        }
+        w = WorkspaceClient() # [cite: 44, 56]
+        # Reverted to pure input format as requested [cite: 47, 58]
+        payload = {"input": [{"role": "user", "content": f"Generate a professional press release for '{show_name}'."}]}
+        
         endpoint_path = "/serving-endpoints/" + SUPERVISOR_ENDPOINT + "/invocations"
         raw_response = w.api_client.do("POST", endpoint_path, body=payload)
         
@@ -79,25 +75,27 @@ CSS = """
 #logo-dark { display: none; }
 @media (prefers-color-scheme: dark) { #logo-light { display: none; } #logo-dark { display: block; } }
 
+/* Fix box sizes to be identical [cite: 43] */
+#input-panel, #output-col { 
+    min-height: 850px !important; 
+}
+
 #input-panel { 
     background: var(--block-background-fill); 
     border: 1px solid var(--border-color-primary); 
     border-radius: 8px; 
     padding: 16px; 
-    min-height: 800px; 
 }
 .gradio-container label span { background: #6366f1 !important; color: white !important; border-radius: 4px; padding: 2px 8px; }
 """
 
 def build_ui():
     with gr.Blocks(css=CSS, theme=gr.themes.Soft()) as app:
-        # Building header manually to avoid f-string logo crashes
         header_html = '<div id="masthead"><div id="versant-logo">'
         header_html += '<img id="logo-light" src="data:image/png;base64,' + logo_light_base64 + '" />'
         header_html += '<img id="logo-dark" src="data:image/png;base64,' + logo_dark_base64 + '" /></div>'
         header_html += '<div id="masthead-text"><h1 style="margin:0; font-size: 2.2rem;">Press Release Generator</h1>'
         header_html += '<p style="margin:0; opacity:0.8;">Versant Innovation Pod &nbsp;·&nbsp; Databricks Supervisor</p></div></div>'
-        
         gr.HTML(header_html)
         
         with gr.Row():
@@ -109,15 +107,15 @@ def build_ui():
                 
                 with gr.Accordion("System Details", open=False):
                     gr.Markdown("""
-                    **Technical Stack:**
-                    * **Data:** Fetches real-time metrics via Genie (SQL Warehouse)
-                    * **Style:** Formats content via Knowledge Assistant (RAG)
-                    * **Inference:** Llama 3.3 70B
+                    **Technical Stack:** [cite: 5, 7]
+                    * **Data:** Genie Space (SQL Warehouse) [cite: 17, 31]
+                    * **Style:** Knowledge Assistant (RAG) [cite: 24, 31]
+                    * **Inference:** Llama 3.3 70B [cite: 39]
                     """)
             
-            with gr.Column(scale=2):
+            with gr.Column(scale=2, elem_id="output-col"):
                 output = gr.HTML(
-                    value="<div style='min-height: 600px; display: flex; align-items: center; justify-content: center; opacity: 0.3;'>Select a show and click generate to begin.</div>",
+                    value="<div style='min-height: 700px; display: flex; align-items: center; justify-content: center; opacity: 0.3;'>Select a show to begin.</div>",
                     label="Final Press Release Draft"
                 )
 
